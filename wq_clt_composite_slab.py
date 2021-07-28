@@ -92,7 +92,12 @@ class CLT:
     def calculate_properties(self, B_eff, L_1, rotated):
         # Get lists with A, J and zeta
         self._make_lists(B_eff)
-        self.E_long, self.E_tran = self._clt_young_moduli(rotated)
+
+        # Get the lists with Young's moduli
+        if not rotated:
+            self.E_long, self.E_tran = self._clt_young_moduli()
+        else:
+            self.E_tran, self.E_long = self._clt_young_moduli()
 
         # Gamma factors
         gamma_2, gamma_22 = self._clt_gamma(L_1)
@@ -120,21 +125,17 @@ class CLT:
             self.zeta.append(lower + t / 2)
             lower += t
 
-    def _clt_young_moduli(self, rotated):
-        E_lon = []
+    def _clt_young_moduli(self):
+        E_long = []
         E_tran = []
         for angle in self.orientation:
             if angle == 0:
-                E_lon.append(self.E_90)
+                E_long.append(self.E_90)
                 E_tran.append(self.E_0)
             else:
-                E_lon.append(self.E_0)
+                E_long.append(self.E_0)
                 E_tran.append(self.E_90)
-
-        if not rotated:
-            return [E_lon, E_tran]
-        else:
-            return [E_tran, E_lon]
+        return [E_long, E_tran]
 
     def _clt_gamma(self, L_1):
         gamma_long = []
