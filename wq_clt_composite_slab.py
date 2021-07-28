@@ -10,7 +10,7 @@ LAYERS = [80, 40, 40, 40, 80]  # thicknesses of layers from bottom to top [mm]
 ORIENTATION = [0, 90, 0, 90, 0]  # orientation of layers from bottom to top (0 if perpendicular to beam)
 YOUNG = [11600, 730]  # Young's moduli in [longitudinal, transverse] directions [MPa]
 ROLLING = 50  # rolling shear modulus [MPa]
-GAMMA = False  # change to True if CLT bending stiffness is calculated with gamma-factors
+GAMMA = True  # change to True if CLT bending stiffness is calculated with gamma-factors
 
 # Composite slab properties
 SPANS = [7, 7]  # spans [L1, L2] [m]
@@ -150,8 +150,7 @@ class CLT:
         middle_layer = len(self.thicknesses) // 2
 
         for i in range(0, len(self.thicknesses)):
-            print("layer", i+1, ":", self.E_long[i], ",", self.E_tran[i])
-
+            # print("layer", i+1, ":", self.E_long[i], ",", self.E_tran[i])
             # Thickness of the adjacent layer closer to the CLT centroid [mm]
             if i < middle_layer:
                 t_j = self.thicknesses[i + 1]
@@ -170,6 +169,18 @@ class CLT:
                 self.gamma_long.append(1)
                 self.gamma_tran.append(
                     1 / (1 + (pi ** 2 * self.E_tran[i] * self.thicknesses[i]) / L ** 2 * t_j / self.G_9090))
+
+
+def print_stresses_clt(stresses):
+    """
+    Print axial stresses in the CLT slab from the given dict.
+    Stresses are printed from the top layer to the bottom layer.
+    :param stresses: dict with axial stresses [MPa] {"layer": {"top": sigma_top, "bot": sigma_bot}}
+    """
+    print("Stresses in CLT [MPa]:")
+    for layer in sorted(stresses, reverse=True):
+        print("Layer ", layer, ": ", "σ_top = ", format(stresses[layer]["top"], "0.2f"), sep="")
+        print("         σ_bot =", format(stresses[layer]["bot"], "0.2f"))
 
 
 class CompositeBeam:
@@ -311,8 +322,6 @@ class CompositeBeam:
             self.EI_eff_22 = self.clt.EI_eff_2_tran
             self.e_2 = self.clt.E_long
             self.e_22 = self.clt.E_tran
-        print("E_2:", format(self.E_2, "0.0f"), "MPa")
-        print("E_22:", format(self.E_22, "0.0f"), "MPa")
 
     def vertical_displacement(self, x):
             """
@@ -453,18 +462,6 @@ class CompositeBeam:
 
         return f
 
-    def print_stresses_clt(self, sigma_clt):
-        """
-        Print axial stresses in the CLT slab from the given list.
-        Stresses are printed from the top layer to the bottom layer.
-        :param sigma_clt: list with axial stresses [MPa]
-        """
-        n = len(self.clt.thicknesses)
-        print("Stresses in CLT [MPa]:")
-        for layer in sorted(sigma_clt, reverse=True):
-            print("Layer ", layer, ": ", "σ_top = ", format(sigma_clt[layer]["top"], "0.2f"), sep="")
-            print("         σ_bot =", format(sigma_clt[layer]["bot"], "0.2f"))
-
 
 def main():
 
@@ -484,11 +481,24 @@ def main():
     F_scr = composite_beam.screw_force(x2)  # calculate force in screw
     f = composite_beam.vibration()  # calculate frequency
 
-    # Print results
+    # Print input info
     if composite_beam.rotated:
-        print("       Rotated!")
-    if composite_beam.n_clt == 1:
-        print("     Single slab!")
+        print("{:>17} {:<} ".format("Rotated slabs:", "Yes"))
+    else:
+        print("{:>17} {:<} ".format("Rotated slabs:", "No"))
+
+    print("{:>17} {:<} ".format("Amount of slabs:", composite_beam.n_clt))
+
+    if composite_beam.clt.gamma_used:
+        print("{:>17} {:<} ".format("Gamma-method:", "Used"))
+    else:
+        print("{:>17} {:<} ".format("Gamma-method:", "Not used"))
+
+    # Print Young's moduli of homogenized slab
+    print("{:>11} {:<} {:<}".format("E_2 =", format(composite_beam.E_2, "0.0f"), "MPa"))
+    print("{:>11} {:<} {:<}".format("E_22 =", format(composite_beam.E_22, "0.0f"), "MPa"))
+
+    # Print results
     print("{:>11} {:<} ".format("s =", format(composite_beam.s, "0.2f")))
     if 'delta_wq' in locals():
         print("{:>11} {:<} {:<}".format("δ_wq =", format(delta_wq, "0.1f"), "mm"))
@@ -503,7 +513,7 @@ def main():
         print("{:>11} {:<} {:<}".format("F_scr =", format(F_scr, "0.2f"), "kN"))
     if 'f' in locals():
         print("{:>11} {:<} {:<}".format("f =", format(f, "0.2f"), "Hz"))
-    composite_beam.print_stresses_clt(sigma_clt)
+    print_stresses_clt(sigma_clt)
 
 
 main()
