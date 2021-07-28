@@ -263,7 +263,7 @@ class CompositeBeam:
         # Width of the applied load
         b_clt = self.L_2
         if self.n_clt == 1:
-            b_clt = L_2 / 2
+            b_clt = self.L_2 / 2
 
         # Linear uniform load applied to the WQ-beam beam [kN/m]
         q = q_clt * b_clt + self.k_dead * m_wq * self.g / 1000
