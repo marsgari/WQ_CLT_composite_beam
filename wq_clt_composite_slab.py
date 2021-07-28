@@ -72,95 +72,104 @@ class CLT:
         self.E_0 = YOUNG[0]  # Young's modulus along grains [MPa]
         self.E_90 = YOUNG[1]  # Young's modulus transverse to grains [MPa]
         self.G_9090 = ROLLING  # rolling shear modulus [MPa]
-        self.use_gamma = GAMMA  # change to True if CLT bending stiffness is calculated with gamma-factors
+        self.gamma_used = GAMMA  # change to True if CLT bending stiffness is calculated with gamma-factors
 
         # Properties of the slab layer-by-layer
-        self.E_lon = []  # Young's moduli in the beam direction
-        self.E_tran = []  # Young's moduli perpendicular to the beam direction
+        self.E_long = []  # Young's moduli in longitudinal direction [MPa]
+        self.E_tran = []  # Young's moduli in transverse direction [MPa]
         self.A = []  # areas [mm2]
-        self.J = []  # second moments of area in relation to own centroid [mm4]
-        self.zeta = []  # distances from own centroid to the centroid of CLT
+        self.J = []  # second moments of area in relation to layer centroid [mm4]
+        self.zeta = []  # distances from layer centroid to CLT centroid [mm]
+        self.gamma_long = [1] * len(self.thicknesses)  # gamma-factors in longitudinal direction
+        self.gamma_tran = [1] * len(self.thicknesses)  # gamma-factors in transverse direction
 
         # Properties of homogenized slab
         self.A_2 = 0  # area [mm2]
         self.I_2 = 0  # second moment of area [mm4]
-        self.E_2 = 0  # Young's modulus in the beam direction
-        self.E_22 = 0  # Young's modulus perpendicular to the beam direction
-        self.EI_eff_2 = 0  # bending stiffness in the beam direction
-        self.EI_eff_22 = 0  # bending stiffness perpendicular to the beam direction
+        self.E_2_long = 0  # Young's modulus in longitudinal direction [MPa]
+        self.E_2_tran = 0  # Young's modulus in transverse direction [MPa]
+        self.EI_eff_2_long = 0  # bending stiffness in longitudinal direction
+        self.EI_eff_2_tran = 0  # bending stiffness in transverse direction
 
-    def calculate_properties(self, B_eff, L_1, rotated):
+    def calculate_properties(self, B_eff, span):
+        """
+        Calculate the properties of the CLT slab.
+        Some properties depend of the effective width and the span of the WQ-beam.
+        The properties are calculated REGARDLESS the orientation of the CLT slab in relation to the WQ-beam.
+        The longitudinal (index _long) corresponds to the direction of the span of the slab.
+        Transverse (index _tran) direction is perpendicular to longitudinal.
+        """
         # Get lists with A, J and zeta
         self._make_lists(B_eff)
 
         # Get the lists with Young's moduli
-        if not rotated:
-            self.E_long, self.E_tran = self._clt_young_moduli()
-        else:
-            self.E_tran, self.E_long = self._clt_young_moduli()
+        self._clt_young_moduli()
 
         # Gamma factors
-        gamma_2, gamma_22 = self._clt_gamma(L_1)
+        # If the gamma method is not used, the default value gamma = 1 is used (see class constructor)
+        if self.gamma_used:
+            self._calculate_gamma(span)
 
         # EI_eff [N*mm^2]
         for r in range(0, len(self.thicknesses)):
-            if not self.use_gamma:
-                self.EI_eff_2 += self.E_long[r] * self.J[r] + self.zeta[r] ** 2 * self.E_long[r] * self.A[r]
-                self.EI_eff_22 += self.E_tran[r] * self.J[r] + self.zeta[r] ** 2 * self.E_tran[r] * self.A[r]
-            else:
-                self.EI_eff_2 += self.E_long[r] * self.J[r] + gamma_2[r] * self.zeta[r] ** 2 * self.E_long[r] * self.A[r]
-                self.EI_eff_22 += self.E_tran[r] * self.J[r] + gamma_22[r] * self.zeta[r] ** 2 * self.E_tran[r] * self.A[r]
+            self.EI_eff_2_long += self.E_long[r] * self.J[r] + self.gamma_long[r] * self.zeta[r] ** 2 \
+                                  * self.E_long[r] * self.A[r]
+            self.EI_eff_2_tran += self.E_tran[r] * self.J[r] + self.gamma_tran[r] * self.zeta[r] ** 2 \
+                                  * self.E_tran[r] * self.A[r]
 
-        # Update CLT properties
-        self.A_2 = B_eff * self.h_l  # mm^2
-        self.I_2 = B_eff * self.h_l ** 3 / 12  # mm^4
-        self.E_2 = self.EI_eff_2 / self.I_2  # N/mm^2 = MPa
-        self.E_22 = self.EI_eff_22 / self.I_2  # N/mm^2 = MPa
+        # CLT properties
+        self.A_2 = B_eff * self.h_l  # [mm^2]
+        self.I_2 = B_eff * self.h_l ** 3 / 12  # [mm^4]
+        self.E_2_long = self.EI_eff_2_long / self.I_2  # [N/mm^2] = [MPa]
+        self.E_2_tran = self.EI_eff_2_tran / self.I_2  # [N/mm^2] = [MPa]
 
     def _make_lists(self, B_eff):
-        lower = -self.h_l / 2  # distance to bottom of CLT layer [mm]
+        """Create the list with corresponding properties layer-by-layer starting from bottom"""
+        layer_bottom = -self.h_l / 2  # distance to bottom of CLT slab [mm]
         for t in self.thicknesses:
             self.A.append(B_eff * t)
             self.J.append(B_eff * t ** 3 / 12)
-            self.zeta.append(lower + t / 2)
-            lower += t
+            self.zeta.append(layer_bottom + t / 2)
+            layer_bottom += t
 
     def _clt_young_moduli(self):
-        E_long = []
-        E_tran = []
+        """Create the list with the Young's moduli layer-by-layer starting from bottom"""
         for angle in self.orientation:
             if angle == 0:
-                E_long.append(self.E_90)
-                E_tran.append(self.E_0)
+                self.E_long.append(self.E_0)
+                self.E_tran.append(self.E_90)
             else:
-                E_long.append(self.E_0)
-                E_tran.append(self.E_90)
-        return [E_long, E_tran]
+                self.E_long.append(self.E_90)
+                self.E_tran.append(self.E_0)
 
-    def _clt_gamma(self, L_1):
-        gamma_long = []
-        gamma_tran = []
-        L = L_1 * 1000  # [mm]
+    def _calculate_gamma(self, span):
+        """Calculate gamma factors"""
+        self.gamma_long.clear()
+        self.gamma_tran.clear()
+        L = span * 1000  # [mm]
         middle_layer = len(self.thicknesses) // 2
+
         for i in range(0, len(self.thicknesses)):
-            # print("layer", i+1, ":", E_lon[i], ",", E_tran[i])
+            print("layer", i+1, ":", self.E_long[i], ",", self.E_tran[i])
+
+            # Thickness of the adjacent layer closer to the CLT centroid [mm]
             if i < middle_layer:
                 t_j = self.thicknesses[i + 1]
             else:
                 t_j = self.thicknesses[i - 1]
-            if i == middle_layer:
-                gamma_long.append(1)
-                gamma_tran.append(1)
-            elif self.orientation[i] == 90:  # longitudinal layer
-                gamma_long.append(
-                    1 / (1 + (pi ** 2 * self.E_long[i] * self.thicknesses[i]) / L ** 2 * t_j / self.G_9090))
-                gamma_tran.append(1)
-            else:  # transverse layer
-                gamma_long.append(1)
-                gamma_tran.append(
-                    1 / (1 + (pi ** 2 * self.E_tran[i] * self.thicknesses[i]) / L ** 2 * t_j / self.G_9090))
 
-        return gamma_long, gamma_tran
+            # Gamma factor
+            if i == middle_layer:  # for the middle layer, gamma is always 1
+                self.gamma_long.append(1)
+                self.gamma_tran.append(1)
+            elif self.orientation[i] == 0:  # longitudinal layer
+                self.gamma_long.append(
+                    1 / (1 + (pi ** 2 * self.E_long[i] * self.thicknesses[i]) / L ** 2 * t_j / self.G_9090))
+                self.gamma_tran.append(1)
+            else:  # transverse layer
+                self.gamma_long.append(1)
+                self.gamma_tran.append(
+                    1 / (1 + (pi ** 2 * self.E_tran[i] * self.thicknesses[i]) / L ** 2 * t_j / self.G_9090))
 
 
 class CompositeBeam:
@@ -192,6 +201,16 @@ class CompositeBeam:
         self.l_s = PERIOD  # period of connectors [mm]
         self.n_sc = SCREW_AMOUNT  # total amount of screws per connector (at both sides)
 
+        # Properties of homogenized slab
+        self.A_2 = 0  # area [mm2]
+        self.I_2 = 0  # second moment of area [mm4]
+        self.e_2 = []  # Young's moduli (layer-by-layer) in the beam direction [MPa]
+        self.e_22 = []  # Young's moduli (layer-by-layer) perpendicular to the beam direction [MPa]
+        self.E_2 = 0  # Young's modulus in the beam direction
+        self.E_22 = 0  # Young's modulus perpendicular to the beam direction
+        self.EI_eff_2 = 0  # bending stiffness in the beam direction
+        self.EI_eff_22 = 0  # bending stiffness perpendicular to the beam direction
+
         # Distance between "faces" [mm]
         self.a = self.clt.h_l / 2 + self.beam.t_b - self.beam.y_bot
 
@@ -202,25 +221,28 @@ class CompositeBeam:
         self.B_eff = self._effective_width()
 
         # Update CLT properties
-        self.clt.calculate_properties(self.B_eff, self.L_1, self.rotated)
+        self.clt.calculate_properties(self.B_eff, self.L_1)
+
+        # Determine slab properties
+        self._slab_properties()
 
         # Linear uniform load applied to the WQ-beam beam [kN/m]
         self.q = self._calculate_load()
 
         # Centroids of the composite beam [mm]
-        self.y_1 = self.clt.E_2 * self.clt.A_2 / (self.beam.E_1 * self.beam.A_1 + self.clt.E_2 * self.clt.A_2) * self.a
-        self.y_2 = - self.beam.E_1 * self.beam.A_1 / (self.beam.E_1 * self.beam.A_1 + self.clt.E_2 * self.clt.A_2) * self.a
+        self.y_1 = self.E_2 * self.A_2 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
+        self.y_2 = - self.beam.E_1 * self.beam.A_1 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
 
         # Total bending stiffness of the composite beam [N*mm^2]
-        self.EI = (self.beam.E_1 * self.beam.I_1) + (self.clt.E_2 * self.clt.I_2) + (
-                    self.y_1 ** 2 * self.beam.E_1 * self.beam.A_1) + self.y_2 ** 2 * self.clt.E_2 * self.clt.A_2
+        self.EI = (self.beam.E_1 * self.beam.I_1) + (self.E_2 * self.I_2) + (
+                    self.y_1 ** 2 * self.beam.E_1 * self.beam.A_1) + self.y_2 ** 2 * self.E_2 * self.A_2
 
         # Steiner term [N*mm^2]
-        self.EI_s = self.EI - self.beam.E_1 * self.beam.I_1 - self.clt.E_2 * self.clt.I_2
+        self.EI_s = self.EI - self.beam.E_1 * self.beam.I_1 - self.E_2 * self.I_2
 
         # Coefficients
         self.alpha_1 = self.beam.E_1 * self.beam.I_1 / self.EI_s
-        self.alpha_2 = self.clt.E_2 * self.clt.I_2 / self.EI_s
+        self.alpha_2 = self.E_2 * self.I_2 / self.EI_s
         self.alpha = self.alpha_1 + self.alpha_2
         self.beta = self.EI_s / (self.k * (self.L_1 * 1000) ** 2)
         self.lam = sqrt((1 + self.alpha) / (self.alpha * self.beta))
@@ -271,22 +293,43 @@ class CompositeBeam:
 
         return q
 
+    def _slab_properties(self):
+        """Determine the properties of homogenized slab depending on the orientation of the slab"""
+        self.A_2 = self.clt.A_2  # area [mm2]
+        self.I_2 = self.clt.I_2  # second moment of area [mm4]
+        if not self.rotated:  # normal case
+            self.E_2 = self.clt.E_2_tran
+            self.E_22 = self.clt.E_2_long
+            self.EI_eff_2 = self.clt.EI_eff_2_tran
+            self.EI_eff_22 = self.clt.EI_eff_2_long
+            self.e_2 = self.clt.E_tran
+            self.e_22 = self.clt.E_long
+        else:  # rotated case
+            self.E_2 = self.clt.E_2_long
+            self.E_22 = self.clt.E_2_tran
+            self.EI_eff_2 = self.clt.EI_eff_2_long
+            self.EI_eff_22 = self.clt.EI_eff_2_tran
+            self.e_2 = self.clt.E_long
+            self.e_22 = self.clt.E_tran
+        print("E_2:", format(self.E_2, "0.0f"), "MPa")
+        print("E_22:", format(self.E_22, "0.0f"), "MPa")
+
     def vertical_displacement(self, x):
-        """
-        Return the vertical displacement of the composite beam at the point x
-        :param x: coordinate of the measured point along the axis of the beam [m]
-        :return v: vertical displacement of the composite beam [mm]
-        """
-        # Relative coordinate of the measured point
-        e = x / self.L_1
+            """
+            Return the vertical displacement of the composite beam at the point x
+            :param x: coordinate of the measured point along the axis of the beam [m]
+            :return v: vertical displacement of the composite beam [mm]
+            """
+            # Relative coordinate of the measured point
+            e = x / self.L_1
 
-        # Displacement of the composite beam [mm]
-        v = self.q * self.L_1 ** 4 / self.EI * (e * (1 - 2 * e ** 2 + e ** 3) / 24 +
-                                 (e * (1 - e)) / (2 * self.alpha * self.lam ** 2)
-                                 - (cosh(self.lam / 2) - cosh(self.lam * (1 - 2 * e) / 2)) /
-                                 (self.alpha * self.lam ** 4 * cosh(self.lam / 2))) * 10 ** 12
+            # Displacement of the composite beam [mm]
+            v = self.q * self.L_1 ** 4 / self.EI * (e * (1 - 2 * e ** 2 + e ** 3) / 24 +
+                                     (e * (1 - e)) / (2 * self.alpha * self.lam ** 2)
+                                     - (cosh(self.lam / 2) - cosh(self.lam * (1 - 2 * e) / 2)) /
+                                     (self.alpha * self.lam ** 4 * cosh(self.lam / 2))) * 10 ** 12
 
-        return v
+            return v
 
     def stresses_wq(self, x):
         """
@@ -343,16 +386,14 @@ class CompositeBeam:
         # EA_sum [N]
         EA_sum = 0
         for r in range(0, len(self.clt.thicknesses)):
-            EA_sum += self.clt.E_long[r] * self.clt.A[r]
+            EA_sum += self.e_2[r] * self.clt.A[r]
 
         # Stress [N/mm^2 = MPa]
         sigma_clt = {}
         for r in range(0, len(self.clt.thicknesses)):
-            sigma_bot = (self.clt.E_long[r] / EA_sum * N_2 +
-                              self.clt.E_long[r] / self.clt.EI_eff_2 * M_2 * (
+            sigma_bot = (self.e_2[r] / EA_sum * N_2 + self.e_2[r] / self.EI_eff_2 * M_2 * (
                                   -(self.clt.zeta[r] - self.clt.thicknesses[r] / 2))) * 1000
-            sigma_top = (self.clt.E_long[r] / EA_sum * N_2 +
-                              self.clt.E_long[r] / self.clt.EI_eff_2 * M_2 * (
+            sigma_top = (self.e_2[r] / EA_sum * N_2 + self.e_2[r] / self.EI_eff_2 * M_2 * (
                                   -(self.clt.zeta[r] + self.clt.thicknesses[r] / 2))) * 1000
             sigma_clt[r+1] = {"top": sigma_top, "bot": sigma_bot}
         return sigma_clt
@@ -402,10 +443,10 @@ class CompositeBeam:
                                   / (1 + self.beta * i ** 2 * pi ** 2) * i ** 4 * pi ** 4) / 1000
 
         # Second moment of inertia per m [mm^4/m]
-        I_22 = self.clt.I_2 / self.B_eff * 1000
+        I_22 = self.I_2 / self.B_eff * 1000
 
         # Fundamental structural frequency of one CLT slab [Hz]
-        f_1 = pi / (2 * self.L_2 ** 2) * sqrt(self.clt.E_22 * I_22 / m) / 1000
+        f_1 = pi / (2 * self.L_2 ** 2) * sqrt(self.E_22 * I_22 / m) / 1000
 
         # Frequency of the total structural system [Hz]
         f = sqrt(1 / (1 / f_0 ** 2 + 1 / f_1 ** 2 + 1 / f_1 ** 2))
@@ -462,7 +503,7 @@ def main():
         print("{:>11} {:<} {:<}".format("F_scr =", format(F_scr, "0.2f"), "kN"))
     if 'f' in locals():
         print("{:>11} {:<} {:<}".format("f =", format(f, "0.2f"), "Hz"))
-    #composite_beam.print_stresses_clt(sigma_clt)
+    composite_beam.print_stresses_clt(sigma_clt)
 
 
 main()
