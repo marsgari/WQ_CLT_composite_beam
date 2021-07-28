@@ -25,8 +25,7 @@ PERIOD = 600  # period of connectors [mm]
 SCREW_AMOUNT = 2  # total amount of screws per connector (at both sides)
 
 # Loads
-Q = [3.0, 5.0]  # characteristic uniform [dead, live] loads [kN/m^2]
-K = [1.15, 1.50]  # load factors for [dead, live] loads
+Q = 89.0  # linear load to the composite beam [kN/m]
 HUMAN = 25  # human induced load vor vibrations [kg/m^2]
 
 
@@ -194,12 +193,13 @@ class CompositeBeam:
         self.s = S  # adjusted parameter [-]
 
         # Loads
-        self.q_dead = Q[0]  # characteristic uniform dead load [kN/m^2]
-        self.q_live = Q[1]  # characteristic uniform live load [kN/m^2]
-        self.k_dead = K[0]  # load factor for dead loads
-        self.k_live = K[1]  # load factor for live loads
+        #self.q_dead = Q[0]  # characteristic uniform dead load [kN/m^2]
+        #self.q_live = Q[1]  # characteristic uniform live load [kN/m^2]
+        #self.k_dead = K[0]  # load factor for dead loads
+        #self.k_live = K[1]  # load factor for live loads
         self.q_h = HUMAN  # human induced load vor vibrations [kg/m^2]
         self.g = 10  # gravity acceleration [m/s^2]
+        self.q = Q  # linear uniform load to the composite beam [kN/m]
 
         # WQ-beam
         self.beam = beam
@@ -237,9 +237,6 @@ class CompositeBeam:
         # Determine slab properties
         self._slab_properties()
 
-        # Linear uniform load applied to the WQ-beam beam [kN/m]
-        self.q = self._calculate_load()
-
         # Centroids of the composite beam [mm]
         self.y_1 = self.E_2 * self.A_2 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
         self.y_2 = - self.beam.E_1 * self.beam.A_1 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
@@ -270,39 +267,6 @@ class CompositeBeam:
         if self.n_clt == 1:
             B_eff = B_eff / 2
         return B_eff
-
-    def _calculate_load(self):
-        """
-        Return the total linear load applied to the WQ-beam.
-        The load includes the weight of the WQ-beam and loads from the half of the span of the CLT slab.
-        The command also calculates but not returns the loads [kN/m^2] applied separately to the WQ-beam
-        and the CLT slab (for FEM)
-        :return q: the total linear load applied to the WQ-beam [kN/m]
-        """
-        # Total dead load to CLT slabs [kN/m^2]
-        q_dead_total = self.q_dead + self.clt.h_l / 1000 * self.clt.rho * self.g / 1000
-
-        # Uniformly distributed load to the CLT slab [kN/m^2]
-        q_clt = q_dead_total * self.k_dead + self.q_live * self.k_live
-
-        # Mass of the WQ-beam per m length [kg/m]
-        m_wq = self.beam.A_1 * self.beam.rho / 10 ** 6
-
-        # Width of the top flange of the WQ-beam
-        b_wq = self.beam.b_t + 2 * self.beam.t_w
-
-        # Uniformly distributed load to the WQ-beam [kN/m^2]
-        q_wq = q_clt * (b_wq + 2 * self.w) / b_wq + self.k_dead * m_wq * self.g / b_wq
-
-        # Width of the applied load
-        b_clt = self.L_2
-        if self.n_clt == 1:
-            b_clt = self.L_2 / 2
-
-        # Linear uniform load applied to the WQ-beam beam [kN/m]
-        q = q_clt * b_clt + self.k_dead * m_wq * self.g / 1000
-
-        return q
 
     def _slab_properties(self):
         """Determine the properties of homogenized slab depending on the orientation of the slab"""
