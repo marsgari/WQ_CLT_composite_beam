@@ -6,27 +6,27 @@ BOTTOM_FLANGE = [490, 10]
 WALL = [272, 5]
 
 # CLT properties
-LAYERS = [80, 40, 40, 40, 80]  # thicknesses of layers from bottom to top [mm]
-ORIENTATION = [0, 90, 0, 90, 0]  # orientation of layers from bottom to top (0 if perpendicular to beam)
-YOUNG = [11600, 730]  # Young's moduli in [longitudinal, transverse] directions [MPa]
-ROLLING = 50  # rolling shear modulus [MPa]
-GAMMA = True  # change to True if CLT bending stiffness is calculated with gamma-factors
+LAYERS = [80, 40, 40, 40, 80]       # thicknesses of layers from bottom to top [mm]
+ORIENTATION = [0, 90, 0, 90, 0]     # orientation of layers from bottom to top (0 if perpendicular to beam)
+YOUNG = [11600, 730]                # Young's moduli in [longitudinal, transverse] directions [MPa]
+ROLLING = 50                        # rolling shear modulus [MPa]
+GAMMA = True                        # change to True if CLT bending stiffness is calculated with gamma-factors
 
 # Composite slab properties
-SPANS = [7, 7]  # spans [L1, L2] [m]
-GAP = 20  # gap between the CLT slab and the WQ-beam [mm]
-SLAB_AMOUNT = 2  # amount of CLT slabs
-ROTATED = False  # change to True if slabs are rotated by 90 degrees
-S = 2.0  # adjusted parameter [-]
+SPANS = [7, 7]      # spans [L1, L2] [m]
+GAP = 20            # gap between the CLT slab and the WQ-beam [mm]
+SLAB_AMOUNT = 2     # amount of CLT slabs
+ROTATED = False     # change to True if slabs are rotated by 90 degrees
+S = 3.5             # adjusted parameter [-]
 
 # Connector properties
-KS = [1330, 2960]  # stiffness of one screw [parallel, perpendicular] to beam direction [N/mm]
-PERIOD = 600  # period of connectors [mm]
-SCREW_AMOUNT = 2  # total amount of screws per connector (at both sides)
+KS = [1330, 2960]   # stiffness of one screw [parallel, perpendicular] to beam direction [N/mm]
+PERIOD = 600        # period of connectors [mm]
+SCREW_AMOUNT = 2    # total amount of screws per connector (at both sides)
 
 # Loads
-Q = 89.0  # linear load to the composite beam [kN/m]
-HUMAN = 25  # human induced load vor vibrations [kg/m^2]
+Q = 89.0            # linear load to the composite beam [kN/m]
+HUMAN = 25          # human induced load for vibrations [kg/m^2]
 
 
 class WQBeam:
@@ -98,10 +98,8 @@ class CLT:
         The longitudinal (index _long) corresponds to the direction of the span of the slab.
         Transverse (index _tran) direction is perpendicular to longitudinal.
         """
-        # Get lists with A, J and zeta
+        # Get lists with A, J zeta and E layer-by-layer
         self._make_lists(B_eff)
-
-        # Get the lists with Young's moduli
         self._clt_young_moduli()
 
         # Gamma factors
@@ -193,18 +191,14 @@ class CompositeBeam:
         self.s = S  # adjusted parameter [-]
 
         # Loads
-        #self.q_dead = Q[0]  # characteristic uniform dead load [kN/m^2]
-        #self.q_live = Q[1]  # characteristic uniform live load [kN/m^2]
-        #self.k_dead = K[0]  # load factor for dead loads
-        #self.k_live = K[1]  # load factor for live loads
         self.q_h = HUMAN  # human induced load vor vibrations [kg/m^2]
         self.g = 10  # gravity acceleration [m/s^2]
-        self.q = Q  # linear uniform load to the composite beam [kN/m]
+        self.q = Q * self.n_clt / 2  # linear uniform load to the composite beam [kN/m]
 
         # WQ-beam
         self.beam = beam
 
-        # CLT slab
+        # CLT slabs
         self.clt = slab
 
         # Connector properties
@@ -291,12 +285,8 @@ class CompositeBeam:
             """
             Return the vertical displacement of the composite beam at the point x
             :param x: coordinate of the measured point along the axis of the beam [m]
-            :return v: vertical displacement of the composite beam [mm]
             """
-            # Relative coordinate of the measured point
             e = x / self.L_1
-
-            # Displacement of the composite beam [mm]
             v = self.q * self.L_1 ** 4 / self.EI * (e * (1 - 2 * e ** 2 + e ** 3) / 24 +
                                      (e * (1 - e)) / (2 * self.alpha * self.lam ** 2)
                                      - (cosh(self.lam / 2) - cosh(self.lam * (1 - 2 * e) / 2)) /
@@ -313,14 +303,12 @@ class CompositeBeam:
         # Relative coordinate of the measured point
         e = x / self.L_1
 
-        # Moments [kN*mm]
+        # Internal moments and forces [kN*mm]
         M_1 = self._moment_i(self.alpha_1, e)
         M_s = self._moment_s(e)
-
-        # Axial force [kN]
         N_1 = M_s / self.a
 
-        # Stresses [N/mm^2 = MPa]
+        # Stresses [MPa]
         sigma_top = (N_1 / self.beam.A_1 + M_1 / self.beam.W_1top) * 1000
         sigma_bot = (N_1 / self.beam.A_1 + M_1 / self.beam.W_1bot) * 1000
 
@@ -349,11 +337,9 @@ class CompositeBeam:
         # Relative coordinate of the measured point
         e = x / self.L_1
 
-        # Moments [kN*mm]
+        # Internal moments and forces [kN*mm]
         M_2 = self._moment_i(self.alpha_2, e)
         M_s = self._moment_s(e)
-
-        # Axial force [kN]
         N_2 = - M_s / self.a
 
         # EA_sum [N]
@@ -369,6 +355,7 @@ class CompositeBeam:
             sigma_top = (self.e_2[r] / EA_sum * N_2 + self.e_2[r] / self.EI_eff_2 * M_2 * (
                                   -(self.clt.zeta[r] + self.clt.thicknesses[r] / 2))) * 1000
             sigma_clt[r+1] = {"top": sigma_top, "bot": sigma_bot}
+
         return sigma_clt
 
     def screw_force(self, x):
@@ -407,10 +394,8 @@ class CompositeBeam:
         # Mass m [kg/m^2]
         m = self.clt.rho * self.clt.h_l / 1000 + self.q_h
 
-        # Interger i
-        i = 1
-
         # Fundamental structural frequency of the wq beam [Hz]
+        i = 1
         f_0 = 1 / (2 * pi) * sqrt(self.EI_s / (mu * self.L_1 ** 4)
                                   * (1 + self.alpha + self.alpha * self.beta * i ** 2 * pi ** 2)
                                   / (1 + self.beta * i ** 2 * pi ** 2) * i ** 4 * pi ** 4) / 1000
@@ -443,7 +428,7 @@ def main():
     sigma_wq = composite_beam.stresses_wq(x1)  # calculate stresses in WQ-beam
     sigma_clt = composite_beam.stresses_clt(x1)  # calculate stresses in CLT slab
     F_scr = composite_beam.screw_force(x2)  # calculate force in screw
-    f = composite_beam.vibration()  # calculate frequency
+    #f = composite_beam.vibration()  # calculate frequency
 
     # Print input info
     if composite_beam.rotated:
@@ -461,6 +446,7 @@ def main():
     # Print Young's moduli of homogenized slab
     print("{:>11} {:<} {:<}".format("E_2 =", format(composite_beam.E_2, "0.0f"), "MPa"))
     print("{:>11} {:<} {:<}".format("E_22 =", format(composite_beam.E_22, "0.0f"), "MPa"))
+    print("{:>11} {:<}".format("a =", format(composite_beam.a, "0.1f")))
 
     # Print results
     print("{:>11} {:<} ".format("s =", format(composite_beam.s, "0.2f")))
@@ -477,7 +463,7 @@ def main():
         print("{:>11} {:<} {:<}".format("F_scr =", format(F_scr, "0.2f"), "kN"))
     if 'f' in locals():
         print("{:>11} {:<} {:<}".format("f =", format(f, "0.2f"), "Hz"))
-    print_stresses_clt(sigma_clt)
+    #print_stresses_clt(sigma_clt)
 
 
 main()
