@@ -8,7 +8,7 @@ def main():
     clt = wq_clt_classes.CLT()
     composite_beam = wq_clt_classes.CompositeBeam(beam, clt)
 
-    # Coordinates of desired points
+    # Coordinates of desired points [m]
     x1 = 3.5
     x2 = 0
 

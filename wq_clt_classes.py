@@ -10,8 +10,8 @@ class WQBeam:
         self.t_b = BOTTOM_FLANGE[1]  # bottom flange thickness [mm]
         self.h_b = WALL[0]  # wall height [mm]
         self.t_w = WALL[1]  # wall thickness [mm]
-        self.E_1 = 210000  # steel Young's modulus [MPa]
-        self.rho = 7850  # steel density [kg/m^3]
+        self.E_1 = STEEL_YOUNG  # steel Young's modulus [MPa]
+        self.rho = STEEL_DENSITY  # steel density [kg/m^3]
 
         # Cross-sectional area
         self.A_1 = self.b_t * self.t_t + self.b_b * self.t_b + 2 * self.h_b * self.t_w
@@ -40,9 +40,9 @@ class CLT:
         self.thicknesses = LAYERS  # thicknesses of layers from bottom to top [mm]
         self.orientation = ORIENTATION  # orientation of layers from bottom to top (0 if perpendicular to beam)
         self.h_l = sum(self.thicknesses)  # total thickness of CLT slab [mm]
-        self.rho = 500  # wood density [kg/m3]
-        self.E_0 = YOUNGS_MODULI[0]  # Young's modulus along grains [MPa]
-        self.E_90 = YOUNGS_MODULI[1]  # Young's modulus transverse to grains [MPa]
+        self.rho = CLT_DENSITY  # wood density [kg/m3]
+        self.E_0 = CLT_YOUNG[0]  # Young's modulus along grains [MPa]
+        self.E_90 = CLT_YOUNG[1]  # Young's modulus transverse to grains [MPa]
         self.G_9090 = ROLLING_MODULUS  # rolling shear modulus [MPa]
         self.gamma_used = GAMMA  # change to True if CLT bending stiffness is calculated with gamma-factors
 
@@ -145,7 +145,7 @@ class CompositeBeam:
     def __init__(self, beam, slab):
         # General properties
         self.L_1 = SPANS[0]  # span of the WQ-beam [m]
-        self.L_2 = SPANS[0]  # span of the CLT slab [m]
+        self.L_2 = SPANS[1]  # span of the CLT slab [m]
         self.w = GAP  # gap between the CLT slab and the WQ-beam [mm]
         self.n_clt = SLAB_AMOUNT  # amount of CLT slabs
         self.rotated = ROTATED  # change to True if slabs are rotated by 90 degrees
@@ -153,7 +153,7 @@ class CompositeBeam:
 
         # Loads
         self.q_h = HUMAN  # human induced load vor vibrations [kg/m^2]
-        self.g = 10  # gravity acceleration [m/s^2]
+        self.g = GRAVITY  # gravity acceleration [m/s^2]
         self.q = Q * self.n_clt / 2  # linear uniform load to the composite beam [kN/m]
 
         # WQ-beam
