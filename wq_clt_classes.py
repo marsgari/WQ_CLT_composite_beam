@@ -1,32 +1,5 @@
 from math import sqrt, cosh, sinh, pi
-
-# WQ properties
-TOP_FLANGE = [280, 14]
-BOTTOM_FLANGE = [490, 10]
-WALL = [272, 5]
-
-# CLT properties
-LAYERS = [80, 40, 40, 40, 80]       # thicknesses of layers from bottom to top [mm]
-ORIENTATION = [0, 90, 0, 90, 0]     # orientation of layers from bottom to top (0 if perpendicular to beam)
-YOUNG = [11600, 730]                # Young's moduli in [longitudinal, transverse] directions [MPa]
-ROLLING = 50                        # rolling shear modulus [MPa]
-GAMMA = True                        # change to True if CLT bending stiffness is calculated with gamma-factors
-
-# Composite slab properties
-SPANS = [7, 7]      # spans [L1, L2] [m]
-GAP = 20            # gap between the CLT slab and the WQ-beam [mm]
-SLAB_AMOUNT = 2     # amount of CLT slabs
-ROTATED = False     # change to True if slabs are rotated by 90 degrees
-S = 2.0             # adjusted parameter [-]
-
-# Connector properties
-KS = [1330, 2960]   # stiffness of one screw [parallel, perpendicular] to beam direction [N/mm]
-PERIOD = 600        # period of connectors [mm]
-SCREW_AMOUNT = 2    # total amount of screws per connector (at both sides)
-
-# Loads
-Q = 89.0            # linear load to the composite beam [kN/m]
-HUMAN = 25          # human induced load for vibrations [kg/m^2]
+from wq_clt_input import *
 
 
 class WQBeam:
@@ -55,7 +28,7 @@ class WQBeam:
         self.I_1 = self.b_t * self.t_t ** 3 / 12 + self.b_t * self.t_t * (self.y_top - self.t_t / 2) ** 2 \
                    + self.b_b * self.t_b ** 3 / 12 + self.b_b * self.t_b * (self.y_bot - self.t_b / 2) ** 2 \
                    + 2 * (self.t_w * self.h_b ** 3 / 12 + self.t_w * self.h_b * (
-                    self.h_b / 2 + self.t_b - self.y_bot) ** 2)
+                self.h_b / 2 + self.t_b - self.y_bot) ** 2)
 
         # Section moduli [mm^3]
         self.W_1top = - self.I_1 / self.y_top
@@ -68,9 +41,9 @@ class CLT:
         self.orientation = ORIENTATION  # orientation of layers from bottom to top (0 if perpendicular to beam)
         self.h_l = sum(self.thicknesses)  # total thickness of CLT slab [mm]
         self.rho = 500  # wood density [kg/m3]
-        self.E_0 = YOUNG[0]  # Young's modulus along grains [MPa]
-        self.E_90 = YOUNG[1]  # Young's modulus transverse to grains [MPa]
-        self.G_9090 = ROLLING  # rolling shear modulus [MPa]
+        self.E_0 = YOUNGS_MODULI[0]  # Young's modulus along grains [MPa]
+        self.E_90 = YOUNGS_MODULI[1]  # Young's modulus transverse to grains [MPa]
+        self.G_9090 = ROLLING_MODULUS  # rolling shear modulus [MPa]
         self.gamma_used = GAMMA  # change to True if CLT bending stiffness is calculated with gamma-factors
 
         # Properties of the slab layer-by-layer
@@ -168,18 +141,6 @@ class CLT:
                     1 / (1 + (pi ** 2 * self.E_tran[i] * self.thicknesses[i]) / L ** 2 * t_j / self.G_9090))
 
 
-def print_stresses_clt(stresses):
-    """
-    Print axial stresses in the CLT slab from the given dict.
-    Stresses are printed from the top layer to the bottom layer.
-    :param stresses: dict with axial stresses [MPa] {"layer": {"top": sigma_top, "bot": sigma_bot}}
-    """
-    print("Stresses in CLT [MPa]:")
-    for layer in sorted(stresses, reverse=True):
-        print("Layer ", layer, ": ", "σ_top = ", format(stresses[layer]["top"], "0.2f"), sep="")
-        print("         σ_bot =", format(stresses[layer]["bot"], "0.2f"))
-
-
 class CompositeBeam:
     def __init__(self, beam, slab):
         # General properties
@@ -220,10 +181,15 @@ class CompositeBeam:
         self.a = self.clt.h_l / 2 + self.beam.t_b - self.beam.y_bot
 
         # Shear factor
-        self.k = self._shear_factor()
+        if not self.rotated:
+            self.k = self.k_s[0] * self.n_sc * self.a ** 2 / self.l_s
+        else:
+            self.k = self.k_s[1] * self.n_sc * self.a ** 2 / self.l_s
 
         # Effective width
-        self.B_eff = self._effective_width()
+        self.B_eff = self.L_1 / self.s * 1000 - 2 * self.w - 2 * self.beam.t_w - self.beam.b_t  # [mm]
+        if self.n_clt == 1:
+            self.B_eff = self.B_eff / 2
 
         # Update CLT properties
         self.clt.calculate_properties(self.B_eff, self.L_1)
@@ -237,7 +203,7 @@ class CompositeBeam:
 
         # Total bending stiffness of the composite beam [N*mm^2]
         self.EI = (self.beam.E_1 * self.beam.I_1) + (self.E_2 * self.I_2) + (
-                    self.y_1 ** 2 * self.beam.E_1 * self.beam.A_1) + self.y_2 ** 2 * self.E_2 * self.A_2
+                self.y_1 ** 2 * self.beam.E_1 * self.beam.A_1) + self.y_2 ** 2 * self.E_2 * self.A_2
 
         # Steiner term [N*mm^2]
         self.EI_s = self.EI - self.beam.E_1 * self.beam.I_1 - self.E_2 * self.I_2
@@ -249,18 +215,12 @@ class CompositeBeam:
         self.beta = self.EI_s / (self.k * (self.L_1 * 1000) ** 2)
         self.lam = sqrt((1 + self.alpha) / (self.alpha * self.beta))
 
-    def _shear_factor(self):
-        if not self.rotated:
-            k = self.k_s[0] * self.n_sc * self.a ** 2 / self.l_s
-        else:
-            k = self.k_s[1] * self.n_sc * self.a ** 2 / self.l_s
-        return k
-
-    def _effective_width(self):
-        B_eff = self.L_1 / self.s * 1000 - 2 * self.w - 2 * self.beam.t_w - self.beam.b_t  # [mm]
-        if self.n_clt == 1:
-            B_eff = B_eff / 2
-        return B_eff
+        # Calculated properties
+        self.displacement = None  # vertical displacement of the composite beam at the point x [mm]
+        self.sigma_wq = None  # stresses in WQ-beam [MPa]
+        self.sigma_clt = None  # stresses in CLT beam [MPa]
+        self.force = None  # force in screw [kN]
+        self.f = None  # fundamental structural frequency [Hz]
 
     def _slab_properties(self):
         """Determine the properties of homogenized slab depending on the orientation of the slab"""
@@ -282,17 +242,17 @@ class CompositeBeam:
             self.e_22 = self.clt.E_tran
 
     def vertical_displacement(self, x):
-            """
-            Return the vertical displacement of the composite beam at the point x
-            :param x: coordinate of the measured point along the axis of the beam [m]
-            """
-            e = x / self.L_1
-            v = self.q * self.L_1 ** 4 / self.EI * (e * (1 - 2 * e ** 2 + e ** 3) / 24 +
-                                     (e * (1 - e)) / (2 * self.alpha * self.lam ** 2)
-                                     - (cosh(self.lam / 2) - cosh(self.lam * (1 - 2 * e) / 2)) /
-                                     (self.alpha * self.lam ** 4 * cosh(self.lam / 2))) * 10 ** 12
-
-            return v
+        """
+        Return the vertical displacement of the composite beam at the point x
+        :param x: coordinate of the measured point along the axis of the beam [m]
+        """
+        e = x / self.L_1
+        self.displacement = self.q * self.L_1 ** 4 / self.EI * (e * (1 - 2 * e ** 2 + e ** 3) / 24 +
+                                                                (e * (1 - e)) / (2 * self.alpha * self.lam ** 2)
+                                                                - (cosh(self.lam / 2) - cosh(
+                    self.lam * (1 - 2 * e) / 2)) /
+                                                                (self.alpha * self.lam ** 4 * cosh(
+                                                                    self.lam / 2))) * 10 ** 12
 
     def stresses_wq(self, x):
         """
@@ -312,13 +272,14 @@ class CompositeBeam:
         sigma_top = (N_1 / self.beam.A_1 + M_1 / self.beam.W_1top) * 1000
         sigma_bot = (N_1 / self.beam.A_1 + M_1 / self.beam.W_1bot) * 1000
 
-        return {"top": sigma_top, "bot": sigma_bot}
+        self.sigma_wq = {"top": sigma_top, "bot": sigma_bot}
 
     def _moment_i(self, alpha_i, e):
         """Return moment at face i [kN*mm]"""
         M_i = 1000 * self.q * self.L_1 ** 2 * alpha_i / (1 + self.alpha) * (e * (1 - e) / 2
                                                                             + 1 / (self.alpha * self.lam ** 2)
-             * (cosh(self.lam / 2) - cosh((self.lam * (1 - 2 * e)) / 2)) / cosh(self.lam / 2))
+                                                                            * (cosh(self.lam / 2) - cosh(
+                    (self.lam * (1 - 2 * e)) / 2)) / cosh(self.lam / 2))
 
         return M_i
 
@@ -348,15 +309,13 @@ class CompositeBeam:
             EA_sum += self.e_2[r] * self.clt.A[r]
 
         # Stress [N/mm^2 = MPa]
-        sigma_clt = {}
+        self.sigma_clt = {}
         for r in range(0, len(self.clt.thicknesses)):
             sigma_bot = (self.e_2[r] / EA_sum * N_2 + self.e_2[r] / self.EI_eff_2 * M_2 * (
-                                  -(self.clt.zeta[r] - self.clt.thicknesses[r] / 2))) * 1000
+                -(self.clt.zeta[r] - self.clt.thicknesses[r] / 2))) * 1000
             sigma_top = (self.e_2[r] / EA_sum * N_2 + self.e_2[r] / self.EI_eff_2 * M_2 * (
-                                  -(self.clt.zeta[r] + self.clt.thicknesses[r] / 2))) * 1000
-            sigma_clt[r+1] = {"top": sigma_top, "bot": sigma_bot}
-
-        return sigma_clt
+                -(self.clt.zeta[r] + self.clt.thicknesses[r] / 2))) * 1000
+            self.sigma_clt[r + 1] = {"top": sigma_top, "bot": sigma_bot}
 
     def screw_force(self, x):
         """
@@ -368,15 +327,13 @@ class CompositeBeam:
 
         # Q_s [kN]
         Q_s = self.q * self.L_1 / (1 + self.alpha) * ((1 - 2 * e) / 2 - (sinh(self.lam * (1 - 2 * e) / 2))
-                                       / (self.lam * cosh(self.lam / 2)))
+                                                      / (self.lam * cosh(self.lam / 2)))
 
         # Connector force [kN]
         F_d = Q_s * self.l_s / self.a
 
         # Connector force per single screw [kN]
-        F_0 = F_d / self.n_sc
-
-        return F_0
+        self.force = F_d / self.n_sc
 
     def vibration(self):
         # Mass of the WQ-beam per m length [kg/m]
@@ -407,63 +364,52 @@ class CompositeBeam:
         f_1 = pi / (2 * self.L_2 ** 2) * sqrt(self.E_22 * I_22 / m) / 1000
 
         # Frequency of the total structural system [Hz]
-        f = sqrt(1 / (1 / f_0 ** 2 + 1 / f_1 ** 2 + 1 / f_1 ** 2))
+        self.f = sqrt(1 / (1 / f_0 ** 2 + 1 / f_1 ** 2 + 1 / f_1 ** 2))
 
-        return f
+    def print_input_info(self):
+        if self.rotated:
+            print("{:>17} {:<} ".format("Rotated slabs:", "Yes"))
+        else:
+            print("{:>17} {:<} ".format("Rotated slabs:", "No"))
 
+        print("{:>17} {:<} ".format("Amount of slabs:", self.n_clt))
 
-def main():
+        if self.clt.gamma_used:
+            print("{:>17} {:<} ".format("Gamma-method:", "Used"))
+        else:
+            print("{:>17} {:<} ".format("Gamma-method:", "Not used"))
 
-    # Make the composite beam
-    beam = WQBeam()
-    clt = CLT()
-    composite_beam = CompositeBeam(beam, clt)
+    def print_clt_properties(self):
+        print("{:>11} {:<} {:<}".format("E_2 =", format(self.E_2, "0.0f"), "MPa"))
+        print("{:>11} {:<} {:<}".format("E_22 =", format(self.E_22, "0.0f"), "MPa"))
+        print("{:>11} {:<}".format("a =", format(self.a, "0.1f")))
 
-    # Coordinates of desired points
-    x1 = composite_beam.L_1 / 2  # coordinate of middle of the span
-    x2 = 0  # coordinate of the support
+    def print_results(self):
+        print("{:>11} {:<} ".format("s =", format(self.s, "0.2f")))
 
-    # Calculate properties
-    delta_wq = composite_beam.vertical_displacement(x1)  # calculate vertical displacements
-    sigma_wq = composite_beam.stresses_wq(x1)  # calculate stresses in WQ-beam
-    sigma_clt = composite_beam.stresses_clt(x1)  # calculate stresses in CLT slab
-    F_scr = composite_beam.screw_force(x2)  # calculate force in screw
-    #f = composite_beam.vibration()  # calculate frequency
+        if self.displacement:
+            print("{:>11} {:<} {:<}".format("δ_wq =", format(self.displacement, "0.1f"), "mm"))
 
-    # Print input info
-    if composite_beam.rotated:
-        print("{:>17} {:<} ".format("Rotated slabs:", "Yes"))
-    else:
-        print("{:>17} {:<} ".format("Rotated slabs:", "No"))
+        if self.sigma_wq:
+            print("{:>11} {:<} {:<}".format("σ_wq,top =", format(self.sigma_wq["top"], ".0f"), "MPa"))
+            print("{:>11} {:<} {:<}".format("σ_wq,bot =", format(self.sigma_wq["bot"], ".0f"), "MPa"))
 
-    print("{:>17} {:<} ".format("Amount of slabs:", composite_beam.n_clt))
+        if self.sigma_clt:
+            print("{:>11} {:<} {:<}".format("σ_clt,top =",
+                                            format(self.sigma_clt[len(self.clt.thicknesses)]["top"],
+                                                   ".2f"), "MPa"))
+            print("{:>11} {:<} {:<}".format("σ_clt,bot =", format(self.sigma_clt[1]["bot"], ".2f"), "MPa"))
 
-    if composite_beam.clt.gamma_used:
-        print("{:>17} {:<} ".format("Gamma-method:", "Used"))
-    else:
-        print("{:>17} {:<} ".format("Gamma-method:", "Not used"))
+        if self.force:
+            print("{:>11} {:<} {:<}".format("F_scr =", format(self.force, "0.2f"), "kN"))
 
-    # Print Young's moduli of homogenized slab
-    print("{:>11} {:<} {:<}".format("E_2 =", format(composite_beam.E_2, "0.0f"), "MPa"))
-    print("{:>11} {:<} {:<}".format("E_22 =", format(composite_beam.E_22, "0.0f"), "MPa"))
-    print("{:>11} {:<}".format("a =", format(composite_beam.a, "0.1f")))
+        if self.f:
+            print("{:>11} {:<} {:<}".format("f =", format(self.f, "0.2f"), "Hz"))
 
-    # Print results
-    print("{:>11} {:<} ".format("s =", format(composite_beam.s, "0.2f")))
-    if 'delta_wq' in locals():
-        print("{:>11} {:<} {:<}".format("δ_wq =", format(delta_wq, "0.1f"), "mm"))
-    if 'sigma_wq' in locals():
-        print("{:>11} {:<} {:<}".format("σ_wq,top =", format(sigma_wq["top"], ".0f"), "MPa"))
-        print("{:>11} {:<} {:<}".format("σ_wq,bot =", format(sigma_wq["bot"], ".0f"), "MPa"))
-    if 'sigma_clt' in locals():
-        print("{:>11} {:<} {:<}".format("σ_clt,top =",
-                                        format(sigma_clt[len(composite_beam.clt.thicknesses)]["top"], ".2f"), "MPa"))
-        print("{:>11} {:<} {:<}".format("σ_clt,bot =", format(sigma_clt[1]["bot"], ".2f"), "MPa"))
-    if 'F_scr' in locals():
-        print("{:>11} {:<} {:<}".format("F_scr =", format(F_scr, "0.2f"), "kN"))
-    if 'f' in locals():
-        print("{:>11} {:<} {:<}".format("f =", format(f, "0.2f"), "Hz"))
-    #print_stresses_clt(sigma_clt)
+        if self.sigma_clt:
+            print("Stresses in CLT [MPa]:")
+            for layer in sorted(self.sigma_clt, reverse=True):
+                print("Layer ", layer, ": ", "σ_top = ", format(self.sigma_clt[layer]["top"], "0.2f"), sep="")
+                print("         σ_bot =", format(self.sigma_clt[layer]["bot"], "0.2f"))
 
 
-main()
