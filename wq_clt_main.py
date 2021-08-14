@@ -1,12 +1,12 @@
-import wq_clt_classes
+from wq_clt_classes import *
 
 
 def main():
 
     # Make the composite beam
-    beam = wq_clt_classes.WQBeam()
-    clt = wq_clt_classes.CLT()
-    composite_beam = wq_clt_classes.CompositeBeam(beam, clt)
+    beam = WQBeam()
+    clt = CLT()
+    composite_beam = CompositeBeam(beam, clt)
 
     # Coordinates of desired points [m]
     x1 = 3.5
