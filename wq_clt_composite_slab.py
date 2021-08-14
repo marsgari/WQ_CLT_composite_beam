@@ -17,7 +17,7 @@ SPANS = [7, 7]      # spans [L1, L2] [m]
 GAP = 20            # gap between the CLT slab and the WQ-beam [mm]
 SLAB_AMOUNT = 2     # amount of CLT slabs
 ROTATED = False     # change to True if slabs are rotated by 90 degrees
-S = 3.5             # adjusted parameter [-]
+S = 2.0             # adjusted parameter [-]
 
 # Connector properties
 KS = [1330, 2960]   # stiffness of one screw [parallel, perpendicular] to beam direction [N/mm]
@@ -232,8 +232,8 @@ class CompositeBeam:
         self._slab_properties()
 
         # Centroids of the composite beam [mm]
-        self.y_1 = self.E_2 * self.A_2 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
-        self.y_2 = - self.beam.E_1 * self.beam.A_1 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
+        self.y_1 = - self.E_2 * self.A_2 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
+        self.y_2 = self.beam.E_1 * self.beam.A_1 / (self.beam.E_1 * self.beam.A_1 + self.E_2 * self.A_2) * self.a
 
         # Total bending stiffness of the composite beam [N*mm^2]
         self.EI = (self.beam.E_1 * self.beam.I_1) + (self.E_2 * self.I_2) + (
