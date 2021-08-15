@@ -1,5 +1,8 @@
 from math import sqrt, cosh, sinh, pi
 from wq_clt_input import *
+import matplotlib.pyplot as plt
+import numpy as np
+import math
 
 
 class WQBeam:
@@ -423,5 +426,66 @@ class CompositeBeam:
             for layer in sorted(self.sigma_clt, reverse=True):
                 print("{:<6} {:>6} {:>7}".format(layer, format(self.sigma_clt[layer]["top"], "0.2f"),
                                                  format(self.sigma_clt[layer]["bot"], "0.2f")))
+            self._make_clt_graph()
         else:
             print("CLT stresses were not calculated and cannot be printed")
+
+    def _make_clt_graph(self):
+        # Thickness coordinates
+        zeta = []
+        x_bottom = - self.clt.h_l / 2
+        for layer in self.clt.thicknesses:
+            x_top = x_bottom + layer
+            zeta.append(x_bottom)
+            zeta.append(x_top)
+            x_bottom = x_top
+
+        # Stresses coordinates
+        sigma = []
+        for layer in self.sigma_clt:
+            sigma.append(self.sigma_clt[layer]["bot"])
+            sigma.append(self.sigma_clt[layer]["top"])
+
+        # Plotting lines
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        plt.plot(sigma, zeta)
+        plt.plot([0, 0], [-self.clt.h_l / 2, self.clt.h_l / 2], "black", lw=0.5)  # vertical line
+
+        # Plotting layer boundaries
+        left = min(sigma) // 2 * 2
+        right = max(sigma) // 2 * 2 + 2
+        grid_size = math.ceil(max(abs(left), right) / 5)
+        minor_grid_size = max(grid_size // 2, 1)
+
+        # Plotting layer boundaries
+        x = - self.clt.h_l / 2
+        for layer in self.clt.thicknesses:
+            plt.plot([left // grid_size * grid_size, (right // grid_size + 1) * grid_size], [x, x], "grey", lw=0.5)
+            x += layer
+        plt.plot([left // grid_size * grid_size, (right // grid_size + 1) * grid_size], [x, x], "grey", lw=0.5)
+
+        # Add horizontal centroid
+        plt.plot([left // grid_size * grid_size, (right // grid_size + 1) * grid_size], [0, 0], "grey", ls="dashdot", lw=0.5)
+
+        # Set grid size
+        x_major_ticks = np.arange(left // grid_size * grid_size, (right // grid_size + 2) * grid_size, grid_size)
+        x_minor_ticks = np.arange(left // grid_size * grid_size, (right // grid_size + 2) * grid_size, minor_grid_size)
+        y_ticks = zeta
+        ax.set_xticks(x_major_ticks)
+        ax.set_xticks(x_minor_ticks, minor=True)
+        ax.set_yticks(y_ticks)
+
+        # Add layer labels
+        position = -self.clt.h_l / 2
+        for n, layer in enumerate(self.clt.thicknesses):
+            plt.text((right // grid_size + 1) * grid_size - grid_size/2, position + layer / 2-3, str(n+1),
+                     bbox=dict(facecolor='white', lw=0))
+            position += layer
+
+        # Formatting
+        plt.xlabel('σ [MPa]')
+        plt.ylabel('ζ [mm]')
+        plt.title('Stresses in CLT [MPa]')
+        plt.grid(axis="x", color='grey', lw=0.25)
+        plt.show()
