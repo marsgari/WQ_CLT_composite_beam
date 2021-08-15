@@ -367,49 +367,52 @@ class CompositeBeam:
         self.f = sqrt(1 / (1 / f_0 ** 2 + 1 / f_1 ** 2 + 1 / f_1 ** 2))
 
     def print_input_info(self):
+        print("Initial data:")
         if self.rotated:
-            print("{:>17} {:<} ".format("Rotated slabs:", "Yes"))
-        else:
-            print("{:>17} {:<} ".format("Rotated slabs:", "No"))
+            print("Slabs are rotated by 90 degrees")
+        if self.n_clt == 1:
+            print("Single CLS slab, asymmetrical loading")
+        if not self.clt.gamma_used:
+            print("CLT properties are calculated ignoring Gamma-method")
 
-        print("{:>17} {:<} ".format("Amount of slabs:", self.n_clt))
-
-        if self.clt.gamma_used:
-            print("{:>17} {:<} ".format("Gamma-method:", "Used"))
-        else:
-            print("{:>17} {:<} ".format("Gamma-method:", "Not used"))
+        print("{:<12} {:>5} ".format("s", format(self.s, "0.1f")))
+        print("{:<12} {:>5} {:<}".format("a", format(self.a, "0.1f"), "mm"))
+        print("{:<12} {:>5} {:<}".format("B_eff", format(self.B_eff, "0.0f"), "mm"))
 
     def print_clt_properties(self):
-        print("{:>11} {:<} {:<}".format("E_2 =", format(self.E_2, "0.0f"), "MPa"))
-        print("{:>11} {:<} {:<}".format("E_22 =", format(self.E_22, "0.0f"), "MPa"))
-        print("{:>11} {:<}".format("a =", format(self.a, "0.1f")))
+        print()
+        print("CLT properties:")
+        print("{:<12} {:>5} {:<}".format("E_2", format(self.E_2, "0.0f"), "MPa"))
+        print("{:<12} {:>5} {:<}".format("E_22", format(self.E_22, "0.0f"), "MPa"))
 
     def print_results(self):
-        print("{:>11} {:<} ".format("s =", format(self.s, "0.2f")))
-
+        print()
+        print("Results:")
         if self.displacement:
-            print("{:>11} {:<} {:<}".format("δ_wq =", format(self.displacement, "0.1f"), "mm"))
+            print("{:<12} {:>5} {:<}".format("δ_wq", format(self.displacement, "0.1f"), "mm"))
 
         if self.sigma_wq:
-            print("{:>11} {:<} {:<}".format("σ_wq,top =", format(self.sigma_wq["top"], ".0f"), "MPa"))
-            print("{:>11} {:<} {:<}".format("σ_wq,bot =", format(self.sigma_wq["bot"], ".0f"), "MPa"))
+            print("{:<12} {:>5} {:<}".format("σ_wq,top", format(self.sigma_wq["top"], ".0f"), "MPa"))
+            print("{:<12} {:>5} {:<}".format("σ_wq,bot", format(self.sigma_wq["bot"], ".0f"), "MPa"))
 
         if self.sigma_clt:
-            print("{:>11} {:<} {:<}".format("σ_clt,top =",
-                                            format(self.sigma_clt[len(self.clt.thicknesses)]["top"],
-                                                   ".2f"), "MPa"))
-            print("{:>11} {:<} {:<}".format("σ_clt,bot =", format(self.sigma_clt[1]["bot"], ".2f"), "MPa"))
+            print("{:<12} {:>5} {:<}".format("σ_clt,top",
+                                             format(self.sigma_clt[len(self.clt.thicknesses)]["top"], ".2f"), "MPa"))
+            print("{:<12} {:>5} {:<}".format("σ_clt,bot", format(self.sigma_clt[1]["bot"], ".2f"), "MPa"))
 
         if self.force:
-            print("{:>11} {:<} {:<}".format("F_scr =", format(self.force, "0.2f"), "kN"))
+            print("{:<12} {:>5} {:<}".format("F_scr", format(self.force, "0.2f"), "kN"))
 
         if self.f:
-            print("{:>11} {:<} {:<}".format("f =", format(self.f, "0.2f"), "Hz"))
+            print("{:<12} {:>5} {:<}".format("f", format(self.f, "0.2f"), "Hz"))
 
+    def print_clt_stresses(self):
+        print()
         if self.sigma_clt:
             print("Stresses in CLT [MPa]:")
+            print("{:<6} {:>6} {:>7}".format("Layer", "Top", "Bottom"))
             for layer in sorted(self.sigma_clt, reverse=True):
-                print("Layer ", layer, ": ", "σ_top = ", format(self.sigma_clt[layer]["top"], "0.2f"), sep="")
-                print("         σ_bot =", format(self.sigma_clt[layer]["bot"], "0.2f"))
-
-
+                print("{:<6} {:>6} {:>7}".format(layer, format(self.sigma_clt[layer]["top"], "0.2f"),
+                                                 format(self.sigma_clt[layer]["bot"], "0.2f")))
+        else:
+            print("CLT stresses were not calculated and cannot be printed")
