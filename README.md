@@ -23,7 +23,7 @@ functions
 * Run wq_clt_main.py
 * The requested results are printed to the console
 
-### Realized functions ###
+### Output functions ###
 * composite_beam.vertical_displacement(x): vertical displacement of the WQ-beam
 * composite_beam.stresses_wq(x): axial stresses in the top and bottom 
 flanges of the WQ-beam
@@ -34,7 +34,5 @@ of the WQ-beam
 composite beam
 
 ### Contacts ###
-Marsel Garifullin: marsel.garifullin@tuni.fi 
-
-Kristo Mela: kristo.mela@tuni.fi
+Marsel Garifullin: marsel.garifullin@tuni.fi
 

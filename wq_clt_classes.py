@@ -37,6 +37,9 @@ class WQBeam:
 
 class CLT:
     def __init__(self):
+        if len(LAYERS) != len(ORIENTATION):
+            print("The amount layers in LAYERS and ORIENTATION do not coincide")
+            exit()
         self.thicknesses = LAYERS  # thicknesses of layers from bottom to top [mm]
         self.orientation = ORIENTATION  # orientation of layers from bottom to top (0 if perpendicular to beam)
         self.h_l = sum(self.thicknesses)  # total thickness of CLT slab [mm]
@@ -147,7 +150,13 @@ class CompositeBeam:
         self.L_1 = SPANS[0]  # span of the WQ-beam [m]
         self.L_2 = SPANS[1]  # span of the CLT slab [m]
         self.w = GAP  # gap between the CLT slab and the WQ-beam [mm]
-        self.n_clt = SLAB_AMOUNT  # amount of CLT slabs
+
+        if SLAB_AMOUNT == 2 or SLAB_AMOUNT == 1:
+            self.n_clt = SLAB_AMOUNT  # amount of CLT slabs
+        else:
+            print("Invalid value for amount of slabs. Please use either 1 or 2")
+            exit()
+
         self.rotated = ROTATED  # change to True if slabs are rotated by 90 degrees
         self.s = S  # adjusted parameter [-]
 
@@ -156,16 +165,16 @@ class CompositeBeam:
         self.g = GRAVITY  # gravity acceleration [m/s^2]
         self.q = Q * self.n_clt / 2  # linear uniform load to the composite beam [kN/m]
 
+        # Connector properties
+        self.k_s = KS  # stiffness of one screw [parallel, perpendicular] to beam direction [N/mm]
+        self.l_s = PERIOD  # period of connectors [mm]
+        self.n_sc = SCREW_AMOUNT  # total amount of screws per connector (at both sides)
+
         # WQ-beam
         self.beam = beam
 
         # CLT slabs
         self.clt = slab
-
-        # Connector properties
-        self.k_s = KS  # stiffness of one screw [parallel, perpendicular] to beam direction [N/mm]
-        self.l_s = PERIOD  # period of connectors [mm]
-        self.n_sc = SCREW_AMOUNT  # total amount of screws per connector (at both sides)
 
         # Properties of homogenized slab
         self.A_2 = 0  # area [mm2]
