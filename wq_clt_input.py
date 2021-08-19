@@ -6,19 +6,19 @@ STEEL_YOUNG = 210000  # Young's modulus [MPa]
 STEEL_DENSITY = 7850  # density [kg/m^3]
 
 # CLT properties
-LAYERS = [80, 40, 40, 40, 80]       # thicknesses of layers from bottom to top [mm]
-ORIENTATION = [0, 90, 0, 90, 0]     # orientation of layers from bottom to top (0 if perpendicular to beam)
-CLT_YOUNG = [11600, 730]            # Young's moduli in [longitudinal, transverse] directions [MPa]
-ROLLING_MODULUS = 50                # rolling shear modulus [MPa]
-CLT_DENSITY = 500                   # density [kg/m3]
-GAMMA = True                        # change to True if CLT bending stiffness is calculated with gamma-factors
+LAYERS = [40, 40, 40, 40, 40, 40, 40]   # thicknesses of layers from bottom to top [mm]
+ORIENTATION = [0, 0, 90, 0, 90, 0, 0]   # orientation of layers from bottom to top (0 if perpendicular to beam)
+CLT_YOUNG = [11600, 730]                # Young's moduli in [longitudinal, transverse] directions [MPa]
+ROLLING_MODULUS = 50                    # rolling shear modulus [MPa]
+CLT_DENSITY = 500                       # density [kg/m3]
+GAMMA = True                            # change to True if CLT bending stiffness is calculated with gamma-factors
 
 # Composite slab properties
 SPANS = [7, 7]      # spans of [WQ-beam, CLT slab] [m]
 GAP = 20            # gap between the CLT slab and the WQ-beam [mm]
 SLAB_AMOUNT = 2     # amount of CLT slabs
 ROTATED = False     # change to True if slabs are rotated by 90 degrees
-S = 2.0             # adjusted parameter [-]
+S = 1.65             # adjusted parameter [-]
 
 # Connector properties
 KS = [1330, 2960]   # stiffness of one screw [parallel, perpendicular] to beam direction [N/mm]
