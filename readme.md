@@ -1,8 +1,8 @@
 # Design of steel-timber composite beams #
 
 This is simple python code written to replace the manual computations for 
-the design of the slim-floor steel-timber composite beams (Nordic system). 
-The composite beam includes a WQ-beam with two CLT slab resting on its 
+the design of slim-floor steel-timber composite beams (Nordic system). 
+The composite beam includes a WQ-beam with two CLT slabs resting on its 
 lower flanges.
 The composite action is realized by connecting the slabs to the WQ-beam 
 by steel plates. 
