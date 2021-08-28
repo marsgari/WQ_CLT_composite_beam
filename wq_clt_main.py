@@ -23,7 +23,7 @@ def main():
     composite_beam.print_input_info()
     composite_beam.print_clt_properties()
     composite_beam.print_results()
-    #composite_beam.print_clt_stresses()
+    composite_beam.print_clt_stresses()
 
     # Make prd-report
     composite_beam.make_report()

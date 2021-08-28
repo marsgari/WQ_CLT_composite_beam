@@ -1,8 +1,9 @@
 from wq_clt_input import *
 from wq_clt_key_labels import input_labels
 
-from math import sqrt, cosh, sinh, pi
+from math import sqrt, cosh, sinh, pi, ceil
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 
 
@@ -456,7 +457,7 @@ class CompositeBeam:
         # Plotting layer boundaries
         left = min(sigma) // 2 * 2
         right = max(sigma) // 2 * 2 + 2
-        grid_size = math.ceil(max(abs(left), right) / 5)
+        grid_size = ceil(max(abs(left), right) / 5)
         minor_grid_size = max(grid_size // 2, 1)
 
         # Plotting layer boundaries
