@@ -2,7 +2,7 @@
 TOP_FLANGE = [280, 14]
 BOTTOM_FLANGE = [490, 10]
 WALL = [272, 5]
-STEEL_YOUNG = 210000  # Young's modulus [MPa]
+STEEL_YOUNG = 210  # Young's modulus [GPa]
 STEEL_DENSITY = 7850  # density [kg/m^3]
 
 # CLT properties

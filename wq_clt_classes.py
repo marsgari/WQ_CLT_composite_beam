@@ -1,8 +1,10 @@
 from math import sqrt, cosh, sinh, pi
 from wq_clt_input import *
+from wq_clt_key_labels import input_labels
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import os
 
 
 class WQBeam:
@@ -13,7 +15,7 @@ class WQBeam:
         self.t_b = BOTTOM_FLANGE[1]  # bottom flange thickness [mm]
         self.h_b = WALL[0]  # wall height [mm]
         self.t_w = WALL[1]  # wall thickness [mm]
-        self.E_1 = STEEL_YOUNG  # steel Young's modulus [MPa]
+        self.E_1 = STEEL_YOUNG * 1000  # steel Young's modulus [MPa]
         self.rho = STEEL_DENSITY  # steel density [kg/m^3]
 
         # Cross-sectional area
@@ -466,7 +468,8 @@ class CompositeBeam:
         plt.plot([left // grid_size * grid_size, (right // grid_size + 1) * grid_size], [x, x], "grey", lw=0.5)
 
         # Add horizontal centroid
-        plt.plot([left // grid_size * grid_size, (right // grid_size + 1) * grid_size], [0, 0], "grey", ls="dashdot", lw=0.5)
+        plt.plot([left // grid_size * grid_size, (right // grid_size + 1) * grid_size], [0, 0], "grey", ls="dashdot",
+                 lw=0.5)
 
         # Set grid size
         x_major_ticks = np.arange(left // grid_size * grid_size, (right // grid_size + 2) * grid_size, grid_size)
@@ -479,7 +482,7 @@ class CompositeBeam:
         # Add layer labels
         position = -self.clt.h_l / 2
         for n, layer in enumerate(self.clt.thicknesses):
-            plt.text((right // grid_size + 1) * grid_size - grid_size/2, position + layer / 2-3, str(n+1),
+            plt.text((right // grid_size + 1) * grid_size - grid_size / 2, position + layer / 2 - 3, str(n + 1),
                      bbox=dict(facecolor='white', lw=0))
             position += layer
 
@@ -489,3 +492,34 @@ class CompositeBeam:
         plt.title('Stresses in CLT [MPa]')
         plt.grid(axis="x", color='grey', lw=0.25)
         plt.show()
+
+    def make_report(self):
+        key_labels = {
+            "effective_width": str(round(self.B_eff, 1)),
+            "I_2": format(round(self.I_2, 1), "0.1e"),
+        }
+
+        with open("template.tex", "r") as myfile:
+            text = myfile.read()
+
+            # Write input
+            for key, value in key_labels.items():
+                text = text.replace("$" + key + "$", value)
+
+            # Write calculations
+            for key, value in input_labels.items():
+                text = text.replace("$" + key + "$", value)
+
+            with open("report.tex", "w") as output:
+                output.write(text)
+
+        myfile.close()
+        output.close()
+
+        # Generate PDF report
+        os.system("pdflatex report.tex")
+        os.remove("report.aux")
+        os.remove("report.log")
+        os.remove("report.out")
+        os.remove("report.tex")
+        os.startfile("report.pdf")
