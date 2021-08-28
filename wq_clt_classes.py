@@ -1,9 +1,8 @@
-from math import sqrt, cosh, sinh, pi
 from wq_clt_input import *
 from wq_clt_key_labels import input_labels
+
+from math import sqrt, cosh, sinh, pi
 import matplotlib.pyplot as plt
-import numpy as np
-import math
 import os
 
 
